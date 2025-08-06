@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import TransactionModal from "@/components/ui/transaction-modal";
 import type { Transaction, Account, UpdateTransaction } from "@shared/schema";
 import { CLASSIFICATION_OPTIONS, PAYMENT_MEDIUM_OPTIONS, PROCESS_TYPE_OPTIONS, SCHEDULE_OPTIONS, STATUTORY_TYPE_OPTIONS } from "@shared/schema";
+import { formatCurrencyWithSign } from "@/lib/currency-utils";
 
 interface TransactionTableProps {
   filters: Record<string, any>;
@@ -134,17 +135,7 @@ export default function TransactionTable({ filters, selectedTransactionIds, onSe
     updateMutation.mutate({ id: transaction.id, updates });
   };
 
-  const formatAmount = (amount: string) => {
-    const num = parseFloat(amount);
-    const isNegative = num < 0;
-    const absAmount = Math.abs(num).toLocaleString('en-US', { minimumFractionDigits: 2 });
-    
-    if (isNegative) {
-      return <span className="text-lg font-semibold text-expense">-${absAmount}</span>;
-    } else {
-      return <span className="text-lg font-semibold text-income">+${absAmount}</span>;
-    }
-  };
+  // Currency formatting is now handled by formatCurrencyWithSign utility
 
   const isUnclassified = (transaction: Transaction) => {
     return !transaction.classification;
@@ -266,7 +257,16 @@ export default function TransactionTable({ filters, selectedTransactionIds, onSe
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {formatAmount(transaction.amount)}
+                    <div className="space-y-1">
+                      <div className="text-sm font-medium text-gray-900">
+                        {formatCurrencyWithSign(parseFloat(transaction.amount), "GBP")}
+                      </div>
+                      {transaction.currency && transaction.currency !== "GBP" && (
+                        <div className="text-xs text-gray-500">
+                          Original: {formatCurrencyWithSign(parseFloat(transaction.originalAmount || transaction.amount), transaction.currency)}
+                        </div>
+                      )}
+                    </div>
                     {isUnclassified(transaction) && (
                       <div className="text-xs text-yellow-600 font-medium">UNCLASSIFIED</div>
                     )}

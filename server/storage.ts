@@ -1,4 +1,12 @@
-import { type Account, type InsertAccount, type Transaction, type InsertTransaction, type UpdateTransaction, type Transactor, type InsertTransactor } from "@shared/schema";
+import {
+  type Account,
+  type InsertAccount,
+  type Transaction,
+  type InsertTransaction,
+  type UpdateTransaction,
+  type Transactor,
+  type InsertTransactor,
+} from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -6,16 +14,25 @@ export interface IStorage {
   getAccounts(): Promise<Account[]>;
   getAccount(id: string): Promise<Account | undefined>;
   createAccount(account: InsertAccount): Promise<Account>;
-  updateAccount(id: string, account: Partial<InsertAccount>): Promise<Account | undefined>;
+  updateAccount(
+    id: string,
+    account: Partial<InsertAccount>,
+  ): Promise<Account | undefined>;
   deleteAccount(id: string): Promise<boolean>;
 
   // Transaction operations
   getTransactions(filters?: TransactionFilters): Promise<Transaction[]>;
   getTransaction(id: string): Promise<Transaction | undefined>;
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
-  updateTransaction(id: string, transaction: UpdateTransaction): Promise<Transaction | undefined>;
+  updateTransaction(
+    id: string,
+    transaction: UpdateTransaction,
+  ): Promise<Transaction | undefined>;
   deleteTransaction(id: string): Promise<boolean>;
-  bulkUpdateTransactions(ids: string[], updates: UpdateTransaction): Promise<Transaction[]>;
+  bulkUpdateTransactions(
+    ids: string[],
+    updates: UpdateTransaction,
+  ): Promise<Transaction[]>;
 
   // Transactor operations
   getTransactors(): Promise<Transactor[]>;
@@ -24,7 +41,9 @@ export interface IStorage {
   searchTransactors(query: string): Promise<Transactor[]>;
 
   // Analytics
-  getTransactionSummary(filters?: TransactionFilters): Promise<TransactionSummary>;
+  getTransactionSummary(
+    filters?: TransactionFilters,
+  ): Promise<TransactionSummary>;
 }
 
 export interface TransactionFilters {
@@ -50,7 +69,11 @@ export interface TransactionSummary {
   totalExpenses: number;
   transactionCount: number;
   unclassifiedCount: number;
-  accountBreakdown: { accountId: string; accountName: string; balance: number }[];
+  accountBreakdown: {
+    accountId: string;
+    accountName: string;
+    balance: number;
+  }[];
 }
 
 export class MemStorage implements IStorage {
@@ -124,6 +147,10 @@ export class MemStorage implements IStorage {
       accountId: account1.id,
       date: new Date("2024-01-15"),
       amount: "4850.00",
+      originalAmount: "4850.00",
+      currency: "GBP",
+      baseCurrency: "GBP",
+      exchangeRate: "1.000000",
       originalDescription: "PAYMENT FROM ACH TRANSFER",
       currentDescription: "Salary Payment - January",
       transactor: "ABC Corporation",
@@ -146,6 +173,10 @@ export class MemStorage implements IStorage {
       accountId: account1.id,
       date: new Date("2024-01-14"),
       amount: "-127.50",
+      originalAmount: "-127.50",
+      currency: "GBP",
+      baseCurrency: "GBP",
+      exchangeRate: "1.000000",
       originalDescription: "GROCERY STORE POS",
       currentDescription: "Weekly Groceries",
       transactor: "SuperMarket Plus",
@@ -163,11 +194,15 @@ export class MemStorage implements IStorage {
       updatedAt: new Date(),
     };
 
-    const transaction3: Transaction = {
+    const transaction4: Transaction = {
       id: randomUUID(),
       accountId: account1.id,
       date: new Date("2024-01-13"),
       amount: "-500.00",
+      originalAmount: "-500.00",
+      currency: "GBP",
+      baseCurrency: "GBP",
+      exchangeRate: "1.000000",
       originalDescription: "UNKNOWN TRANSFER",
       currentDescription: null,
       transactor: null,
@@ -185,9 +220,37 @@ export class MemStorage implements IStorage {
       updatedAt: new Date(),
     };
 
+    // Create a ZAR transaction example
+    const transaction3: Transaction = {
+      id: randomUUID(),
+      accountId: account2.id,
+      date: new Date("2024-01-16"),
+      amount: "-85.11", // Converted to GBP (R2000 * 0.0426)
+      originalAmount: "-2000.00", // Original ZAR amount
+      currency: "ZAR",
+      baseCurrency: "GBP",
+      exchangeRate: "0.042550", // ZAR to GBP rate
+      originalDescription: "ATM WITHDRAWAL JOHANNESBURG",
+      currentDescription: "Cash withdrawal in South Africa",
+      transactor: "Standard Bank ATM",
+      classification: "Expense",
+      paymentMedium: "Cash Payment",
+      processType: "Manual",
+      schedule: "Ad Hoc",
+      statutoryType: "Voluntary",
+      isDeleted: false,
+      isActual: true,
+      isBudgetItem: false,
+      isInteraccount: false,
+      isIncomeStatement: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
     this.transactions.set(transaction1.id, transaction1);
     this.transactions.set(transaction2.id, transaction2);
     this.transactions.set(transaction3.id, transaction3);
+    this.transactions.set(transaction4.id, transaction4);
   }
 
   // Account operations
@@ -210,7 +273,10 @@ export class MemStorage implements IStorage {
     return account;
   }
 
-  async updateAccount(id: string, updates: Partial<InsertAccount>): Promise<Account | undefined> {
+  async updateAccount(
+    id: string,
+    updates: Partial<InsertAccount>,
+  ): Promise<Account | undefined> {
     const account = this.accounts.get(id);
     if (!account) return undefined;
 
@@ -228,44 +294,99 @@ export class MemStorage implements IStorage {
     let transactions = Array.from(this.transactions.values());
 
     if (filters) {
-      transactions = transactions.filter(tx => {
-        if (filters.accountId && tx.accountId !== filters.accountId) return false;
-        if (filters.classification && tx.classification !== filters.classification) return false;
-        if (filters.paymentMedium && tx.paymentMedium !== filters.paymentMedium) return false;
-        if (filters.processType && tx.processType !== filters.processType) return false;
+      transactions = transactions.filter((tx) => {
+        if (filters.accountId && tx.accountId !== filters.accountId)
+          return false;
+        if (
+          filters.classification &&
+          tx.classification !== filters.classification
+        )
+          return false;
+        if (filters.paymentMedium && tx.paymentMedium !== filters.paymentMedium)
+          return false;
+        if (filters.processType && tx.processType !== filters.processType)
+          return false;
         if (filters.schedule && tx.schedule !== filters.schedule) return false;
-        if (filters.statutoryType && tx.statutoryType !== filters.statutoryType) return false;
-        if (filters.transactor && tx.transactor !== filters.transactor) return false;
+        if (filters.statutoryType && tx.statutoryType !== filters.statutoryType)
+          return false;
+        if (filters.transactor && tx.transactor !== filters.transactor)
+          return false;
         if (filters.search) {
           const searchLower = filters.search.toLowerCase();
-          const matchesOriginal = tx.originalDescription.toLowerCase().includes(searchLower);
-          const matchesCurrent = tx.currentDescription?.toLowerCase().includes(searchLower);
-          const matchesTransactor = tx.transactor?.toLowerCase().includes(searchLower);
-          if (!matchesOriginal && !matchesCurrent && !matchesTransactor) return false;
+          const matchesOriginal = tx.originalDescription
+            .toLowerCase()
+            .includes(searchLower);
+          const matchesCurrent = tx.currentDescription
+            ?.toLowerCase()
+            .includes(searchLower);
+          const matchesTransactor = tx.transactor
+            ?.toLowerCase()
+            .includes(searchLower);
+          if (!matchesOriginal && !matchesCurrent && !matchesTransactor)
+            return false;
         }
         if (!filters.showDeleted && tx.isDeleted) return false;
-        if (filters.isActual !== undefined && tx.isActual !== filters.isActual) return false;
-        if (filters.isBudgetItem !== undefined && tx.isBudgetItem !== filters.isBudgetItem) return false;
-        if (filters.isInteraccount !== undefined && tx.isInteraccount !== filters.isInteraccount) return false;
-        if (filters.isIncomeStatement !== undefined && tx.isIncomeStatement !== filters.isIncomeStatement) return false;
-        
+        if (filters.isActual !== undefined && tx.isActual !== filters.isActual)
+          return false;
+        if (
+          filters.isBudgetItem !== undefined &&
+          tx.isBudgetItem !== filters.isBudgetItem
+        )
+          return false;
+        if (
+          filters.isInteraccount !== undefined &&
+          tx.isInteraccount !== filters.isInteraccount
+        )
+          return false;
+        if (
+          filters.isIncomeStatement !== undefined &&
+          tx.isIncomeStatement !== filters.isIncomeStatement
+        )
+          return false;
+
         return true;
       });
     }
 
-    return transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return transactions.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    );
   }
 
   async getTransaction(id: string): Promise<Transaction | undefined> {
     return this.transactions.get(id);
   }
 
-  async createTransaction(insertTransaction: InsertTransaction): Promise<Transaction> {
+  async createTransaction(
+    insertTransaction: InsertTransaction,
+  ): Promise<Transaction> {
     const id = randomUUID();
+
+    // Handle currency conversion
+    const originalAmount = parseFloat(
+      insertTransaction.originalAmount || insertTransaction.amount,
+    );
+    const currency = insertTransaction.currency || "GBP";
+    const baseCurrency = insertTransaction.baseCurrency || "GBP";
+
+    // Calculate exchange rate and base currency amount
+    let exchangeRate = 1.0;
+    let baseAmount = originalAmount;
+
+    if (currency !== baseCurrency) {
+      exchangeRate = this.getExchangeRate(currency, baseCurrency);
+      baseAmount = originalAmount * exchangeRate;
+    }
+
     const transaction: Transaction = {
       ...insertTransaction,
       id,
       accountId: insertTransaction.accountId || null,
+      amount: baseAmount.toFixed(2),
+      originalAmount: originalAmount.toFixed(2),
+      currency,
+      baseCurrency,
+      exchangeRate: exchangeRate.toFixed(6),
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -273,14 +394,57 @@ export class MemStorage implements IStorage {
     return transaction;
   }
 
-  async updateTransaction(id: string, updates: UpdateTransaction): Promise<Transaction | undefined> {
+  private getExchangeRate(fromCurrency: string, toCurrency: string): number {
+    // Exchange rates (in production, these would come from an API)
+    const exchangeRates: Record<string, Record<string, number>> = {
+      GBP: { GBP: 1.0, ZAR: 23.5, USD: 1.25, EUR: 1.15 },
+      ZAR: { GBP: 0.0426, ZAR: 1.0, USD: 0.053, EUR: 0.049 },
+      USD: { GBP: 0.8, ZAR: 18.8, USD: 1.0, EUR: 0.92 },
+      EUR: { GBP: 0.87, ZAR: 20.43, USD: 1.09, EUR: 1.0 },
+    };
+
+    if (fromCurrency === toCurrency) return 1.0;
+
+    const fromRates = exchangeRates[fromCurrency];
+    if (!fromRates || !fromRates[toCurrency]) {
+      return 1.0;
+    }
+
+    return fromRates[toCurrency];
+  }
+
+  async updateTransaction(
+    id: string,
+    updates: UpdateTransaction,
+  ): Promise<Transaction | undefined> {
     const transaction = this.transactions.get(id);
     if (!transaction) return undefined;
 
-    const updatedTransaction = { 
-      ...transaction, 
-      ...updates, 
-      updatedAt: new Date() 
+    // Handle currency conversion on updates
+    let updatedData = { ...updates };
+
+    if (updates.originalAmount || updates.currency) {
+      const originalAmount = parseFloat(
+        updates.originalAmount ||
+          transaction.originalAmount ||
+          transaction.amount,
+      );
+      const currency = updates.currency || transaction.currency || "GBP";
+      const baseCurrency = transaction.baseCurrency || "GBP";
+
+      if (currency !== baseCurrency) {
+        const exchangeRate = this.getExchangeRate(currency, baseCurrency);
+        const baseAmount = originalAmount * exchangeRate;
+
+        updatedData.exchangeRate = exchangeRate.toFixed(6);
+        updatedData.amount = baseAmount.toFixed(2);
+      }
+    }
+
+    const updatedTransaction = {
+      ...transaction,
+      ...updatedData,
+      updatedAt: new Date(),
     };
     this.transactions.set(id, updatedTransaction);
     return updatedTransaction;
@@ -290,16 +454,19 @@ export class MemStorage implements IStorage {
     return this.transactions.delete(id);
   }
 
-  async bulkUpdateTransactions(ids: string[], updates: UpdateTransaction): Promise<Transaction[]> {
+  async bulkUpdateTransactions(
+    ids: string[],
+    updates: UpdateTransaction,
+  ): Promise<Transaction[]> {
     const updatedTransactions: Transaction[] = [];
-    
+
     for (const id of ids) {
       const updated = await this.updateTransaction(id, updates);
       if (updated) {
         updatedTransactions.push(updated);
       }
     }
-    
+
     return updatedTransactions;
   }
 
@@ -312,7 +479,9 @@ export class MemStorage implements IStorage {
     return this.transactors.get(id);
   }
 
-  async createTransactor(insertTransactor: InsertTransactor): Promise<Transactor> {
+  async createTransactor(
+    insertTransactor: InsertTransactor,
+  ): Promise<Transactor> {
     const id = randomUUID();
     const transactor: Transactor = {
       ...insertTransactor,
@@ -326,21 +495,23 @@ export class MemStorage implements IStorage {
 
   async searchTransactors(query: string): Promise<Transactor[]> {
     const queryLower = query.toLowerCase();
-    return Array.from(this.transactors.values()).filter(t => 
-      t.name.toLowerCase().includes(queryLower)
+    return Array.from(this.transactors.values()).filter((t) =>
+      t.name.toLowerCase().includes(queryLower),
     );
   }
 
   // Analytics
-  async getTransactionSummary(filters?: TransactionFilters): Promise<TransactionSummary> {
+  async getTransactionSummary(
+    filters?: TransactionFilters,
+  ): Promise<TransactionSummary> {
     const transactions = await this.getTransactions(filters);
-    const activeTransactions = transactions.filter(tx => !tx.isDeleted);
-    
+    const activeTransactions = transactions.filter((tx) => !tx.isDeleted);
+
     let totalIncome = 0;
     let totalExpenses = 0;
     let unclassifiedCount = 0;
 
-    activeTransactions.forEach(tx => {
+    activeTransactions.forEach((tx) => {
       const amount = parseFloat(tx.amount);
       if (tx.classification === "Income") {
         totalIncome += amount;
@@ -351,10 +522,14 @@ export class MemStorage implements IStorage {
       }
     });
 
-    const accountBreakdown: { accountId: string; accountName: string; balance: number }[] = [];
+    const accountBreakdown: {
+      accountId: string;
+      accountName: string;
+      balance: number;
+    }[] = [];
     const accountBalances = new Map<string, number>();
-    
-    activeTransactions.forEach(tx => {
+
+    activeTransactions.forEach((tx) => {
       if (tx.accountId) {
         const current = accountBalances.get(tx.accountId) || 0;
         accountBalances.set(tx.accountId, current + parseFloat(tx.amount));

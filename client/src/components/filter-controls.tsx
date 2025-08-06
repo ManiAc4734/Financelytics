@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { useQuery } from "@tanstack/react-query";
 import type { Account } from "@shared/schema";
+import { CURRENCY_OPTIONS } from "@shared/schema";
 import { CLASSIFICATION_OPTIONS, PAYMENT_MEDIUM_OPTIONS, PROCESS_TYPE_OPTIONS, SCHEDULE_OPTIONS, STATUTORY_TYPE_OPTIONS } from "@shared/schema";
 
 interface FilterControlsProps {

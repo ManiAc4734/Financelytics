@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, PieChart, BarChart3 } from "lucide-react";
+import CurrencyConverter from "@/components/currency-converter";
+import { formatCurrencyWithSign } from "@/lib/currency-utils";
 
 interface SummaryData {
   totalIncome: number;
@@ -46,7 +48,7 @@ export default function Analytics() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-income">
-              ${summary?.totalIncome.toLocaleString('en-US', { minimumFractionDigits: 2 }) || '0.00'}
+              {formatCurrencyWithSign(summary?.totalIncome || 0, 'GBP')}
             </div>
           </CardContent>
         </Card>
@@ -58,7 +60,7 @@ export default function Analytics() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-expense">
-              ${summary?.totalExpenses.toLocaleString('en-US', { minimumFractionDigits: 2 }) || '0.00'}
+              {formatCurrencyWithSign(summary?.totalExpenses || 0, 'GBP')}
             </div>
           </CardContent>
         </Card>
@@ -70,7 +72,7 @@ export default function Analytics() {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${netIncome >= 0 ? 'text-income' : 'text-expense'}`}>
-              ${Math.abs(netIncome).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              {formatCurrencyWithSign(netIncome, 'GBP')}
             </div>
             <p className="text-xs text-muted-foreground">
               {netIncome >= 0 ? 'Positive cash flow' : 'Negative cash flow'}
@@ -95,27 +97,33 @@ export default function Analytics() {
         </Card>
       </div>
 
-      {/* Account Breakdown */}
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>Account Balances</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {summary?.accountBreakdown.map((account) => (
-              <div key={account.accountId} className="flex justify-between items-center">
-                <div>
-                  <p className="font-medium">{account.accountName}</p>
-                  <p className="text-sm text-gray-500">Account Balance</p>
-                </div>
-                <div className={`text-lg font-semibold ${account.balance >= 0 ? 'text-income' : 'text-expense'}`}>
-                  ${Math.abs(account.balance).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                </div>
+      {/* Account Breakdown & Currency Converter */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {summary?.accountBreakdown && summary.accountBreakdown.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <BarChart3 className="mr-2 h-5 w-5" />
+                Account Breakdown (GBP)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {summary.accountBreakdown.map((account) => (
+                  <div key={account.accountId} className="flex items-center justify-between py-2 border-b last:border-0">
+                    <span className="font-medium text-gray-700">{account.accountName}</span>
+                    <span className={`text-lg font-semibold ${account.balance >= 0 ? 'text-income' : 'text-expense'}`}>
+                      {formatCurrencyWithSign(account.balance, 'GBP')}
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        )}
+        
+        <CurrencyConverter />
+      </div>
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

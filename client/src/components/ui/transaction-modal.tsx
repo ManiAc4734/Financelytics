@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Transaction, Account, UpdateTransaction } from "@shared/schema";
-import { CLASSIFICATION_OPTIONS, PAYMENT_MEDIUM_OPTIONS, PROCESS_TYPE_OPTIONS, SCHEDULE_OPTIONS, STATUTORY_TYPE_OPTIONS } from "@shared/schema";
+import { CLASSIFICATION_OPTIONS, PAYMENT_MEDIUM_OPTIONS, PROCESS_TYPE_OPTIONS, SCHEDULE_OPTIONS, STATUTORY_TYPE_OPTIONS, CURRENCY_OPTIONS } from "@shared/schema";
+import { formatCurrencyWithSign, convertCurrency, getExchangeRate } from "@/lib/currency-utils";
 
 interface TransactionModalProps {
   transaction: Transaction;
@@ -19,6 +20,10 @@ export default function TransactionModal({ transaction, accounts, onClose, onSav
   const [formData, setFormData] = useState<UpdateTransaction>({
     date: transaction.date,
     amount: transaction.amount,
+    originalAmount: transaction.originalAmount,
+    currency: transaction.currency || "GBP",
+    baseCurrency: transaction.baseCurrency || "GBP",
+    exchangeRate: transaction.exchangeRate,
     currentDescription: transaction.currentDescription || "",
     transactor: transaction.transactor || "",
     accountId: transaction.accountId || "",
@@ -40,7 +45,24 @@ export default function TransactionModal({ transaction, accounts, onClose, onSav
   };
 
   const handleInputChange = (field: keyof UpdateTransaction, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => {
+      const newData = { ...prev, [field]: value };
+      
+      // If currency or originalAmount changes, recalculate the base amount
+      if (field === 'currency' || field === 'originalAmount') {
+        const originalAmount = parseFloat(field === 'originalAmount' ? value : newData.originalAmount || '0');
+        const currency = field === 'currency' ? value : newData.currency || 'GBP';
+        const baseCurrency = newData.baseCurrency || 'GBP';
+        
+        const exchangeRate = getExchangeRate(currency, baseCurrency);
+        const baseAmount = originalAmount * exchangeRate;
+        
+        newData.exchangeRate = exchangeRate.toString();
+        newData.amount = baseAmount.toString();
+      }
+      
+      return newData;
+    });
   };
 
   return (
@@ -62,13 +84,47 @@ export default function TransactionModal({ transaction, accounts, onClose, onSav
             </div>
 
             <div>
-              <Label className="block text-sm font-medium text-gray-700 mb-2">Amount</Label>
+              <Label className="block text-sm font-medium text-gray-700 mb-2">Currency</Label>
+              <Select value={formData.currency || "GBP"} onValueChange={(value) => handleInputChange("currency", value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select currency..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {CURRENCY_OPTIONS.map((currency) => (
+                    <SelectItem key={currency} value={currency}>
+                      {currency}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="block text-sm font-medium text-gray-700 mb-2">
+                Original Amount ({formData.currency})
+              </Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={formData.originalAmount}
+                onChange={(e) => handleInputChange("originalAmount", e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label className="block text-sm font-medium text-gray-700 mb-2">
+                Base Amount (GBP)
+              </Label>
               <Input
                 type="number"
                 step="0.01"
                 value={formData.amount}
-                onChange={(e) => handleInputChange("amount", e.target.value)}
+                disabled
+                className="bg-gray-50 text-gray-500"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Exchange Rate: 1 {formData.currency} = {parseFloat(formData.exchangeRate || '1').toFixed(4)} GBP
+              </p>
             </div>
 
             <div className="md:col-span-2">

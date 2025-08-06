@@ -16,7 +16,11 @@ export const transactions = pgTable("transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   accountId: varchar("account_id").references(() => accounts.id),
   date: timestamp("date").notNull(),
-  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(), // Amount in base currency (GBP)
+  originalAmount: decimal("original_amount", { precision: 15, scale: 2 }).notNull(), // Original transaction amount
+  currency: text("currency").notNull().default("GBP"), // Transaction currency
+  baseCurrency: text("base_currency").notNull().default("GBP"), // Base reporting currency
+  exchangeRate: decimal("exchange_rate", { precision: 15, scale: 6 }).default("1.0"), // Exchange rate used for conversion
   originalDescription: text("original_description").notNull(),
   currentDescription: text("current_description"),
   transactor: text("transactor"), // Counterparty
@@ -76,6 +80,10 @@ export type UpdateTransaction = z.infer<typeof updateTransactionSchema>;
 
 export type Transactor = typeof transactors.$inferSelect;
 export type InsertTransactor = z.infer<typeof insertTransactorSchema>;
+
+// Currency definitions
+export const CURRENCY_OPTIONS = ["GBP", "ZAR", "USD", "EUR"] as const;
+export const BASE_CURRENCY = "GBP";
 
 // Enums for classification options
 export const CLASSIFICATION_OPTIONS = ["Income", "Expense"] as const;
